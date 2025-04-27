@@ -20,8 +20,7 @@ public:
 	void startMainLoop();
 
 	bool handleEvent();
-	void imshow(std::string, cv::Mat*);
-	void imshow(cv::Mat*);
+
 	void show();
 	void exit();
 	float getGain();
@@ -31,6 +30,8 @@ private:
 	void initContents();
 	void render();
 	void showMainContents();
+
+	void addFiltersTable();
 
 	WebcamController webcamController;
 
@@ -44,8 +45,6 @@ private:
 	// static contents
 	ImVec4 clear_color;
 
-	std::vector<std::string> frame_names;
-	std::vector<cv::Mat*> frames;
 	float gain;
 };
 

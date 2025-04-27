@@ -5,3 +5,4 @@
 /.vs/WebcamFilteringWithOpenCVandCUDANPP
 /bin/x64/Debug
 /vcpkg_installed/x64-windows
+/WebcamFilteringWithOpenCVandCUDANPP/imgui.ini

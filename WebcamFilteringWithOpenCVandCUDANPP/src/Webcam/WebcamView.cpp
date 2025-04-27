@@ -10,7 +10,8 @@
 #include "../Texture/ImageTexture.h"
 
 
-WebcamView::WebcamView()
+WebcamView::WebcamView() :
+	webcamController(WebcamController())
 {
 	init();
 	initContents();
@@ -109,17 +110,6 @@ void WebcamView::render()
 	SDL_GL_SwapWindow(window);
 }
 
-void WebcamView::imshow(std::string frame_name, cv::Mat* frame)
-{
-	frame_names.push_back(frame_name);
-	frames.push_back(frame);
-}
-
-void WebcamView::imshow(cv::Mat* frame)
-{
-	imshow("image:" + std::to_string(frames.size()), frame);
-}
-
 void WebcamView::showMainContents()
 {
 	ImGui::Begin("Main");
@@ -128,13 +118,39 @@ void WebcamView::showMainContents()
 
 	ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
 				ImGui::GetIO().Framerate);
+
+	addFiltersTable();
+
 	ImGui::End();
+}
+
+void WebcamView::addFiltersTable()
+{
+	ImGui::BeginTable("Filters", 1, ImGuiTableFlags_BordersOuter);
+
+	ImGui::TableSetupColumn("Filters");
+	ImGui::TableHeadersRow();
+
+	for (auto& filter : webcamController.activeFilters)
+	{
+		ImGui::TableNextRow();
+		ImGui::TableSetColumnIndex(0);
+
+		ImGui::PushID((int)filter.first);
+
+		if (ImGui::Checkbox(webcamController.activeFiltersStrings.at(filter.first).c_str(), &filter.second))
+		{
+			webcamController.setActiveFilter(filter.first, filter.second);
+		}
+
+		ImGui::PopID();
+	}
+
+	ImGui::EndTable();
 }
 
 void WebcamView::show()
 {
-	static cv::Mat camFrame;
-
 	// Start the Dear ImGui frame
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
@@ -143,52 +159,31 @@ void WebcamView::show()
 
 	showMainContents();
 
-	if (webcamController.getCameraFrame(camFrame))
+	for (const auto& filter: webcamController.activeFilters)
 	{
-		imshow("Webcam", &camFrame);
-	}
+		if (filter.second == false)// inactive
+			continue;
 
-	// initialize textures
-	std::vector<ImageTexture*> my_textures;
-	for (int i = 0; i < frames.size(); i++)
-	{
-		my_textures.push_back(new ImageTexture());
-	}
+		std::string window_name = webcamController.activeFiltersStrings.at(filter.first);
 
-	// imshow windows
-	for (int i = 0; i < frames.size(); i++)
-	{
-		cv::Mat* frame = frames[i];
+		cv::Mat* frame = nullptr;
 
-		std::string window_name;
-		if (frame_names.size() <= i)
-		{
-			window_name = "image:" + std::to_string(i);
-		}
-		else
-		{
-			window_name = frame_names[i];
-		}
+		webcamController.setFrameMutexLocked(filter.first, true);
+		webcamController.getFilteredFrame(filter.first, frame);
+
+		ImageTexture* texture = new ImageTexture();
+		texture->setImage(frame);
+
+		webcamController.setFrameMutexLocked(filter.first, false);
 
 		ImGui::Begin(window_name.c_str());
 
-		my_textures[i]->setImage(frame);
-		ImGui::Image((ImTextureID)(intptr_t)my_textures[i]->getOpenglTexture(), my_textures[i]->getSize());
+		ImGui::Image((ImTextureID)(intptr_t)texture->getOpenglTexture(), texture->getSize());
 
 		ImGui::End();
 	}
 
 	render();
-
-	// clear resources
-	for (int i = 0; i < frames.size(); i++)
-	{
-		delete my_textures[i];
-	}
-
-	frame_names.clear();
-	frames.clear();
-	my_textures.clear();
 }
 
 bool WebcamView::handleEvent()

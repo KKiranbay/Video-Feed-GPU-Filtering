@@ -7,101 +7,19 @@
 
 WebcamController::WebcamController()
 {
+	activeFilters = {
+		{ FilterType::None, false },
+		{ FilterType::Grayscale, false },
+		{ FilterType::Sobel, false }
+	};
+
+	activeFiltersStrings = {
+		{ FilterType::None, "None" },
+		{ FilterType::Grayscale, "Grayscale" },
+		{ FilterType::Sobel, "Sobel" }
+	};
+
 	initVideoCapture();
-}
-
-void WebcamController::startVideoCapture()
-{
-	videoCaptureThread = std::jthread(&WebcamController::startVideoCaptureThread, this);
-}
-
-bool WebcamController::getCameraFrame(cv::Mat& mat)
-{
-	if (currentCamFrame.empty() == false)
-	{
-		// filterMutexes.at(GPUMatTypes::CamFrame).lock();
-
-		mat = currentCamFrame;
-
-		// filterMutexes.at(GPUMatTypes::CamFrame).unlock();
-
-		return true;
-	}
-
-	return false;
-}
-
-void WebcamController::setActiveFilter(bool activate, FilterType filterType)
-{
-	if (activate)
-	{
-		bool filterInserted = false;
-
-		const auto& filteredFrame = filteredFrames.find(filterType);
-		if (filteredFrame == filteredFrames.end())
-		{
-			filteredFrames[filterType] = std::make_shared<cv::Mat>(currentCamFrame.size(), currentCamFrame.type());
-			filterInserted = true;
-		}
-
-		if (filterInserted)
-		{
-			if (filteredFrames.size() == 1)
-			{
-				// Set the initial gpu frames
-				gpuMatFrames[GPUMatTypes::CamFrame] = std::make_shared<cv::cuda::GpuMat>();
-				gpuMatFrames.at(GPUMatTypes::CamFrame)->create(currentCamFrame.size(), currentCamFrame.type());
-			}
-
-			switch (filterType)
-			{
-				case FilterType::Grayscale:
-					gpuMatFrames[GPUMatTypes::GrayFrame] = std::make_shared<cv::cuda::GpuMat>();
-					gpuMatFrames[GPUMatTypes::GrayFrameRGB] = std::make_shared<cv::cuda::GpuMat>();
-					break;
-				case FilterType::Sobel:
-					gpuMatFrames[GPUMatTypes::SobelFrame] = std::make_shared<cv::cuda::GpuMat>();
-					break;
-				default:
-					break;
-			}
-		}
-	}
-	else
-	{
-		if (filteredFrames.erase(filterType) > 0)
-		{
-			switch (filterType)
-			{
-				case FilterType::Grayscale:
-					gpuMatFrames.erase(GPUMatTypes::GrayFrame);
-					gpuMatFrames.erase(GPUMatTypes::GrayFrameRGB);
-					break;
-				case FilterType::Sobel:
-					gpuMatFrames.erase(GPUMatTypes::SobelFrame);
-					break;
-				default:
-					break;
-			}
-
-			if (filteredFrames.empty())
-			{
-				gpuMatFrames.erase(GPUMatTypes::CamFrame);
-			}
-		}
-	}
-}
-
-bool WebcamController::getFilteredFrame(FilterType filterType, std::shared_ptr<cv::Mat>& mat)
-{
-	const auto& filteredFrame = filteredFrames.find(filterType);
-	if (filteredFrame == filteredFrames.end())
-	{
-		mat = filteredFrame->second;
-		return true;
-	}
-
-	return false;
 }
 
 void WebcamController::initVideoCapture()
@@ -137,21 +55,18 @@ void WebcamController::initVideoCapture()
 		<< "-----------------------------------------";
 
 	// Set the initial camera frame
-	filterMutexes[GPUMatTypes::CamFrame];
-	currentCamFrame = cv::Mat(cameraHeight, cameraWidth, CV_8UC3);
-
-
-	filterMutexes.at(GPUMatTypes::CamFrame).lock();
-
 	camCapture >> currentCamFrame;
-
-	filterMutexes.at(GPUMatTypes::CamFrame).unlock();
 
 	if (currentCamFrame.empty())
 	{
 		std::cout << "Error: Could not capture frame. \n";
 		return;
 	}
+}
+
+void WebcamController::startVideoCapture()
+{
+	videoCaptureThread = std::jthread(&WebcamController::startVideoCaptureThread, this);
 }
 
 void WebcamController::startVideoCaptureThread()
@@ -164,12 +79,7 @@ void WebcamController::startVideoCaptureThread()
 
 	while (true)
 	{
-		filterMutexes.at(GPUMatTypes::CamFrame).lock();
-
 		camCapture >> currentCamFrame;
-
-		filterMutexes.at(GPUMatTypes::CamFrame).unlock();
-
 		if (currentCamFrame.empty())
 		{
 			std::cout << "Error: Could not capture frame. \n";
@@ -178,26 +88,130 @@ void WebcamController::startVideoCaptureThread()
 
 		for (const auto& filter : filteredFrames)
 		{
+			std::lock_guard<std::mutex> lock(filterMutexes[filter.first]);
+
 			switch (filter.first)
 			{
-				case FilterType::Grayscale:
-					generateGrayscaleRGBFrame();
-					break;
-				case FilterType::Sobel:
-					generateSobelFilteredFrame();
-					break;
-				default:
-					break;
+			case FilterType::None:
+			{
+				generateCameraFrame();
+				break;
+			}
+			case FilterType::Grayscale:
+			{
+				generateGrayscaleRGBFrame();
+				break;
+			}
+			case FilterType::Sobel:
+			{
+				generateSobelFilteredFrame();
+				break;
+			}
+			default:
+				break;
 			}
 		}
 	}
 }
 
+void WebcamController::generateCameraFrame()
+{
+	filteredFrames.at(FilterType::None) = currentCamFrame;
+}
+
 void WebcamController::generateGrayscaleRGBFrame()
 {
-
+	filteredFrames.at(FilterType::Grayscale) = currentCamFrame;
 }
 
 void WebcamController::generateSobelFilteredFrame()
 {
+	filteredFrames.at(FilterType::Sobel) = currentCamFrame;
+}
+
+void WebcamController::setActiveFilter(FilterType filterType, bool active)
+{
+	std::lock_guard<std::mutex> lock(filterMutexes[filterType]);
+
+	if (active)
+	{
+		bool filterInserted = false;
+
+		const auto& filteredFrame = filteredFrames.find(filterType);
+		if (filteredFrame == filteredFrames.end())
+		{
+			filteredFrames[filterType] = cv::Mat(currentCamFrame.size(), currentCamFrame.type());
+			filterInserted = true;
+		}
+
+		if (filterInserted)
+		{
+			if (filteredFrames.size() == 1)
+			{
+				// Set the initial gpu frames
+				gpuMatFrames[GPUMatTypes::CamFrame] = cv::cuda::GpuMat();
+				gpuMatFrames.at(GPUMatTypes::CamFrame).create(currentCamFrame.size(), currentCamFrame.type());
+			}
+
+			switch (filterType)
+			{
+			case FilterType::Grayscale:
+				gpuMatFrames[GPUMatTypes::GrayFrame] = cv::cuda::GpuMat();
+				gpuMatFrames[GPUMatTypes::GrayFrameRGB] = cv::cuda::GpuMat();
+				break;
+			case FilterType::Sobel:
+				gpuMatFrames[GPUMatTypes::SobelFrame] = cv::cuda::GpuMat();
+				break;
+			default:
+				break;
+			}
+		}
+	}
+	else
+	{
+		if (filteredFrames.erase(filterType) > 0)
+		{
+			switch (filterType)
+			{
+			case FilterType::Grayscale:
+				gpuMatFrames.erase(GPUMatTypes::GrayFrame);
+				gpuMatFrames.erase(GPUMatTypes::GrayFrameRGB);
+				break;
+			case FilterType::Sobel:
+				gpuMatFrames.erase(GPUMatTypes::SobelFrame);
+				break;
+			default:
+				break;
+			}
+
+			if (filteredFrames.empty())
+			{
+				gpuMatFrames.erase(GPUMatTypes::CamFrame);
+			}
+		}
+	}
+}
+
+bool WebcamController::getFilteredFrame(FilterType filterType, cv::Mat*& mat)
+{
+	const auto& filteredFrame = filteredFrames.find(filterType);
+	if (filteredFrame != filteredFrames.end())
+	{
+		mat = &filteredFrame->second;
+		return true;
+	}
+
+	return false;
+}
+
+void WebcamController::setFrameMutexLocked(FilterType filterType, bool lock)
+{
+	if (lock)
+	{
+		filterMutexes[filterType].lock();
+	}
+	else
+	{
+		filterMutexes[filterType].unlock();
+	}
 }
