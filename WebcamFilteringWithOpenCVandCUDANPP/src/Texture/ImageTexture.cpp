@@ -6,7 +6,7 @@ ImageTexture::~ImageTexture()
 	glDeleteTextures(1, &m_opengl_texture);
 }
 
-void ImageTexture::setImage(cv::Mat* frame)
+void ImageTexture::setImage(const cv::Mat* frame)
 {
 	width = frame->cols;
 	height = frame->rows;
@@ -29,5 +29,5 @@ void* ImageTexture::getOpenglTexture()
 
 ImVec2 ImageTexture::getSize()
 {
-	return ImVec2(width, height);
+	return ImVec2(static_cast<float>(width), static_cast<float>(height));
 }

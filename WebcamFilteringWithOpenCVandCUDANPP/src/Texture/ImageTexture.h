@@ -10,7 +10,7 @@ class ImageTexture
 public:
 	~ImageTexture();
 
-	void setImage(cv::Mat* frame);
+	void setImage(const cv::Mat* frame);
 	void* getOpenglTexture();
 	ImVec2 getSize();
 

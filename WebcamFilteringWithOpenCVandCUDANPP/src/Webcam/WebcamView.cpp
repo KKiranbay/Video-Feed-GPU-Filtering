@@ -159,19 +159,21 @@ void WebcamView::show()
 
 	showMainContents();
 
-	for (const auto& filter: webcamController.activeFilters)
+	std::vector<std::shared_ptr<ImageTexture>> textures;
+
+	for (const auto& filter : webcamController.activeFilters)
 	{
 		if (filter.second == false)// inactive
 			continue;
 
 		std::string window_name = webcamController.activeFiltersStrings.at(filter.first);
 
-		cv::Mat* frame = nullptr;
+		const cv::Mat* frame = nullptr;
 
 		webcamController.setFrameMutexLocked(filter.first, true);
 		webcamController.getFilteredFrame(filter.first, frame);
 
-		ImageTexture* texture = new ImageTexture();
+		std::shared_ptr<ImageTexture>& texture = textures.emplace_back(std::make_shared<ImageTexture>());
 		texture->setImage(frame);
 
 		webcamController.setFrameMutexLocked(filter.first, false);
@@ -204,7 +206,6 @@ bool WebcamView::handleEvent()
 
 void WebcamView::startMainLoop()
 {
-	// Main loop
 	while (!handleEvent())
 	{
 		show();

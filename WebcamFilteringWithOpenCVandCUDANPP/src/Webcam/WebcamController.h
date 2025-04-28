@@ -5,6 +5,8 @@
 #include <thread>
 #include <unordered_map>
 
+#include <nppdefs.h>
+
 #include <opencv4/opencv2/core/cuda.hpp>
 #include <opencv4/opencv2/core/mat.hpp>
 #include <opencv4/opencv2/videoio.hpp>
@@ -25,7 +27,7 @@ public:
 	void startVideoCapture();
 
 	void setActiveFilter(FilterType filterType, bool active);
-	bool getFilteredFrame(FilterType filterType, cv::Mat*& mat);
+	bool getFilteredFrame(FilterType filterType, const cv::Mat*& mat);
 
 	void setFrameMutexLocked(FilterType filterType, bool lock);
 
@@ -42,8 +44,11 @@ private:
 	void generateSobelFilteredFrame();
 
 	cv::VideoCapture camCapture;
-	std::jthread videoCaptureThread;
 	cv::Mat currentCamFrame;
+
+	bool videoCaptureCanBeStarted;
+	std::jthread videoCaptureThread;
+
 
 	std::unordered_map<FilterType, cv::Mat> filteredFrames;
 	std::unordered_map<FilterType, std::mutex> filterMutexes;
@@ -53,8 +58,12 @@ private:
 		CamFrame,
 		GrayFrame,
 		GrayFrameRGB,
-		SobelFrame
+		SobelFrame,
+		CurrentFiltersCombined
 	};
 	std::unordered_map<GPUMatTypes, cv::cuda::GpuMat> gpuMatFrames;
+
+	cv::cuda::GpuMat gradXGpu;
+	cv::cuda::GpuMat gradYGpu;
 };
 
