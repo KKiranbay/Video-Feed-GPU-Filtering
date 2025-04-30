@@ -1,9 +1,24 @@
 #include "ImageTexture.h"
 
+ImageTexture::ImageTexture()
+{
+	binded = false;
+}
+
 ImageTexture::~ImageTexture()
 {
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glDeleteTextures(1, &m_opengl_texture);
+	release();
+}
+
+void ImageTexture::release()
+{
+	if (binded)
+	{
+		glBindTexture(GL_TEXTURE_2D, 0);
+		glDeleteTextures(1, &m_opengl_texture);
+
+		binded = false;
+	}
 }
 
 void ImageTexture::setImage(const cv::Mat* frame)
@@ -20,6 +35,8 @@ void ImageTexture::setImage(const cv::Mat* frame)
 	// Some environments do not support GP_BGR
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
 				 GL_BGR, GL_UNSIGNED_BYTE, frame->data);
+
+	binded = true;
 }
 
 void* ImageTexture::getOpenglTexture()

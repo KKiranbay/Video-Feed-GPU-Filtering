@@ -8,13 +8,17 @@
 class ImageTexture
 {
 public:
+	ImageTexture();
 	~ImageTexture();
+
+	void release();
 
 	void setImage(const cv::Mat* frame);
 	void* getOpenglTexture();
 	ImVec2 getSize();
 
 private:
+	bool binded;
 	int width, height;
 	GLuint m_opengl_texture;
 };

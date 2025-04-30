@@ -32,6 +32,7 @@ private:
 	void showMainContents();
 
 	void addFiltersTable();
+	void addFilterRow(FilterType filterType);
 
 	WebcamController webcamController;
 

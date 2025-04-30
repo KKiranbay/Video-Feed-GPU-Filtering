@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -8,7 +9,6 @@
 #include <nppdefs.h>
 
 #include <opencv4/opencv2/core/cuda.hpp>
-#include <opencv4/opencv2/core/mat.hpp>
 #include <opencv4/opencv2/videoio.hpp>
 
 
@@ -26,22 +26,31 @@ public:
 
 	void startVideoCapture();
 
-	void setActiveFilter(FilterType filterType, bool active);
-	bool getFilteredFrame(FilterType filterType, const cv::Mat*& mat);
+	void changedActiveFilter(FilterType filterType);
+	void changedCombinedFiltersActive();
+	void changedActiveCombinedFilters(FilterType filterType);
 
-	void setFrameMutexLocked(FilterType filterType, bool lock);
+	bool getFilteredMat(FilterType filterType, cv::Mat*& imageMat);
 
-	std::unordered_map<FilterType, bool> activeFilters;
+	const cv::Mat& getCurrentFiltersCombinedFrame() const;
+
+	int activeFiltersCount;
+	std::unordered_map<FilterType, bool> activeFiltersMap;
 	std::unordered_map<FilterType, std::string> activeFiltersStrings;
+
+	bool combinedFiltersActive;
+	std::unordered_map<FilterType, bool> combinedFilters;
 
 private:
 	void initVideoCapture();
 	void startVideoCaptureThread();
 
-
 	void generateCameraFrame();
 	void generateGrayscaleRGBFrame();
 	void generateSobelFilteredFrame();
+	void generateCombinedFilteredFrame();
+
+	void combinedFrameInitOrDestroy();
 
 	cv::VideoCapture camCapture;
 	cv::Mat currentCamFrame;
@@ -49,9 +58,11 @@ private:
 	bool videoCaptureCanBeStarted;
 	std::jthread videoCaptureThread;
 
-
+	std::unordered_map<FilterType, std::mutex> filteredFramesMutexes;
 	std::unordered_map<FilterType, cv::Mat> filteredFrames;
-	std::unordered_map<FilterType, std::mutex> filterMutexes;
+
+	std::mutex currentFiltersCombinedFrameMutex;
+	cv::Mat currentFiltersCombinedFrame;
 
 	enum class GPUMatTypes
 	{
@@ -59,11 +70,14 @@ private:
 		GrayFrame,
 		GrayFrameRGB,
 		SobelFrame,
+		SobelGradXGpu,
+		SobelGradYGpu,
 		CurrentFiltersCombined
 	};
-	std::unordered_map<GPUMatTypes, cv::cuda::GpuMat> gpuMatFrames;
+	std::unordered_map<GPUMatTypes, std::mutex> gpuMatsMutexes;
+	std::unordered_map<GPUMatTypes, cv::cuda::GpuMat> gpuMats;
 
-	cv::cuda::GpuMat gradXGpu;
-	cv::cuda::GpuMat gradYGpu;
+	int combinedFiltersCount;
+
 };
 
