@@ -32,7 +32,7 @@ public:
 
 	bool getFilteredMat(FilterType filterType, cv::Mat*& imageMat);
 
-	const cv::Mat& getCurrentFiltersCombinedFrame() const;
+	const cv::Mat* getCurrentFiltersCombinedFrame();
 
 	int activeFiltersCount;
 	std::unordered_map<FilterType, bool> activeFiltersMap;

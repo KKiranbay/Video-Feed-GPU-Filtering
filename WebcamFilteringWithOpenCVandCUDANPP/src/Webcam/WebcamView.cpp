@@ -179,7 +179,7 @@ void WebcamView::show()
 	showMainContents();
 
 	std::vector<ImageTexture> textures(webcamController.activeFiltersCount);
-	const auto& textureItr = textures.begin();
+	auto textureItr = textures.begin();
 
 	for (const auto& filter : webcamController.activeFiltersMap)
 	{
@@ -202,11 +202,19 @@ void WebcamView::show()
 		ImGui::Image((ImTextureID)(intptr_t)textureItr->getOpenglTexture(), textureItr->getSize());
 
 		ImGui::End();
+
+		textureItr++;
 	}
 
 	if (webcamController.combinedFiltersActive)
 	{
+		ImageTexture combinedTexture;
+		const cv::Mat* imageMat = webcamController.getCurrentFiltersCombinedFrame();
+		combinedTexture.setImage(imageMat);
+
 		ImGui::Begin("Filters Combined");
+
+		ImGui::Image((ImTextureID)(intptr_t)combinedTexture.getOpenglTexture(), combinedTexture.getSize());
 
 		ImGui::End();
 	}

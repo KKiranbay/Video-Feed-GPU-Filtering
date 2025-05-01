@@ -137,7 +137,7 @@ void WebcamController::startVideoCaptureThread()
 			}
 		}
 
-		if (combinedFiltersActive && combinedFiltersCount != 0)
+		if (combinedFiltersActive && combinedFiltersCount != 0 && gpuMats.find(GPUMatTypes::CurrentFiltersCombined) != gpuMats.end())
 		{
 			generateCombinedFilteredFrame();
 		}
@@ -150,7 +150,6 @@ void WebcamController::generateCameraFrame()
 
 	std::lock_guard<std::mutex> lockCamFrameGpuMat(gpuMatsMutexes[GPUMatTypes::CamFrame]);
 	gpuMats.at(GPUMatTypes::CamFrame).download(filteredFrames.at(FilterType::None));
-
 }
 
 void WebcamController::generateGrayscaleRGBFrame()
@@ -428,7 +427,7 @@ void WebcamController::combinedFrameInitOrDestroy()
 	if (combinedFiltersActive && combinedFiltersCount != 0)
 	{
 		cv::MatSize& currentCamFrameSize = currentCamFrame.size;
-		currentFiltersCombinedFrame = cv::Mat(currentCamFrameSize().width * combinedFiltersCount, currentCamFrameSize().height, currentCamFrame.type());
+		currentFiltersCombinedFrame = cv::Mat(currentCamFrameSize().height, currentCamFrameSize().width * combinedFiltersCount, currentCamFrame.type());
 
 		std::lock_guard<std::mutex> lockCurrentFiltersCombinedGpuMutex(gpuMatsMutexes[GPUMatTypes::CurrentFiltersCombined]);
 		gpuMats[GPUMatTypes::CurrentFiltersCombined];
@@ -460,7 +459,7 @@ void WebcamController::changedActiveCombinedFilters(FilterType filterType)
 		combinedFiltersCount--;
 	}
 
-	changedCombinedFiltersActive();
+	combinedFrameInitOrDestroy();
 }
 
 bool WebcamController::getFilteredMat(FilterType filterType, cv::Mat*& imageMat)
@@ -475,7 +474,7 @@ bool WebcamController::getFilteredMat(FilterType filterType, cv::Mat*& imageMat)
 	return false;
 }
 
-const cv::Mat& WebcamController::getCurrentFiltersCombinedFrame() const
+const cv::Mat* WebcamController::getCurrentFiltersCombinedFrame()
 {
-	return currentFiltersCombinedFrame;
+	return &currentFiltersCombinedFrame;
 }
