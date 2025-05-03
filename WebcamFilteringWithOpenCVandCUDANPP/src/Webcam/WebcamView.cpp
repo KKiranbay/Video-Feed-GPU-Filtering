@@ -138,31 +138,40 @@ void WebcamView::addFiltersTable()
 
 	ImGui::TableHeadersRow();
 
-	addFilterRow(FilterType::None);
-	addFilterRow(FilterType::Grayscale);
-	addFilterRow(FilterType::Sobel);
+	addFilterRow(FilterTypeEnum::None);
+	addFilterRow(FilterTypeEnum::Grayscale);
+	addFilterRow(FilterTypeEnum::Sobel);
 
 	ImGui::EndTable();
 }
 
-void WebcamView::addFilterRow(FilterType filterType)
+void WebcamView::addFilterRow(FilterTypeEnum filterType)
 {
 	ImGui::TableNextRow();
 	ImGui::TableSetColumnIndex(0);
 
 	ImGui::PushID((int)filterType);
 
-	if (ImGui::Checkbox(webcamController.activeFiltersStrings.at(filterType).c_str(),
-						&webcamController.activeFiltersMap.at(filterType)))
+	bool& active = webcamController.activeFiltersMap.at(filterType);
+	if (ImGui::Checkbox(webcamController.activeFiltersStrings.at(filterType).c_str(), &active))
 	{
 		webcamController.changedActiveFilter(filterType);
+
+		if (active == false)
+		{
+			webcamController.combinedFilters.at(filterType) = false;
+			webcamController.changedActiveCombinedFilters(filterType);
+		}
 	}
 
-	ImGui::TableSetColumnIndex(1);
-
-	if (ImGui::Checkbox("", &webcamController.combinedFilters.at(filterType)))
+	if (active)
 	{
-		webcamController.changedActiveCombinedFilters(filterType);
+		ImGui::TableSetColumnIndex(1);
+
+		if (ImGui::Checkbox("Add", &webcamController.combinedFilters.at(filterType)))
+		{
+			webcamController.changedActiveCombinedFilters(filterType);
+		}
 	}
 
 	ImGui::PopID();
@@ -186,12 +195,7 @@ void WebcamView::show()
 		if (filter.second == false) // inactive
 			continue;
 
-		cv::Mat* imageMat = nullptr;
-
-		if (webcamController.getFilteredMat(filter.first, imageMat) == false)
-		{
-			continue;
-		}
+		const cv::Mat* imageMat = webcamController.getFilteredMat(filter.first);
 
 		textureItr->setImage(imageMat);
 
@@ -206,9 +210,10 @@ void WebcamView::show()
 		textureItr++;
 	}
 
+	ImageTexture combinedTexture;
+
 	if (webcamController.combinedFiltersActive)
 	{
-		ImageTexture combinedTexture;
 		const cv::Mat* imageMat = webcamController.getCurrentFiltersCombinedFrame();
 		combinedTexture.setImage(imageMat);
 
