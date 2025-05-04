@@ -88,6 +88,8 @@ private:
 	bool videoCaptureCanBeStarted;
 	std::jthread videoCaptureThread;
 
+	std::mutex activeFiltersMutex;
+
 	std::unordered_map<FilterTypeEnum, MatAndMutex> filteredMatsAndMutexesMap;
 
 	MatAndMutex currentFiltersCombinedMatAndMutex;
