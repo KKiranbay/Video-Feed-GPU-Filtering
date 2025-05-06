@@ -13,36 +13,63 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Source Files\Texture">
-      <UniqueIdentifier>{c8df9e25-2f15-470e-980c-d0e82d2c82c3}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Webcam">
-      <UniqueIdentifier>{9331e250-8dae-4eed-a5b6-69f18dfadcd5}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Webcam\WebcamController.cpp">
-      <Filter>Source Files\Webcam</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Webcam\WebcamView.cpp">
-      <Filter>Source Files\Webcam</Filter>
+    <ClCompile Include="src\EventQueues\ViewEventQueue.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Texture\ImageTexture.cpp">
-      <Filter>Source Files\Texture</Filter>
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Webcam\WebcamController.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Webcam\WebcamView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Events\ViewEvent.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Events\ViewEvent_ActivateCombinedFilter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Events\ViewEvent_ChangeActiveFiltersOnCombinedFilter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Events\ViewEvent_ChangeActiveFilters.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Webcam\WebcamController.h">
-      <Filter>Source Files\Webcam</Filter>
+    <ClInclude Include="src\EventQueues\ViewEventQueue.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Webcam\WebcamView.h">
-      <Filter>Source Files\Webcam</Filter>
+    <ClInclude Include="src\Events\ViewEvent.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Texture\ImageTexture.h">
-      <Filter>Source Files\Texture</Filter>
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Webcam\WebcamController.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Webcam\WebcamView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Events\ViewEvent_ChangeActiveFilters.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Events\ViewEvent_ActivateCombinedFilter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Events\ViewEvent_ChangeActiveFiltersOnCombinedFilter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Filters\FilterTypes.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

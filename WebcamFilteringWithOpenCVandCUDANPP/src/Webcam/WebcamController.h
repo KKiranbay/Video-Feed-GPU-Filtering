@@ -12,34 +12,24 @@
 #include <opencv4/opencv2/videoio.hpp>
 
 #define NOMINMAX
-#include "../Texture/ImageTexture.h"
+#include "Texture/ImageTexture.h"
+#include "Filters/FilterTypes.h"
+#include "Events/ViewEvent.h"
 
-
-enum class FilterTypeEnum
-{
-	None,
-	Grayscale,
-	Sobel
-};
+class WebcamView;
 
 class WebcamController
 {
 public:
-	WebcamController();
+	WebcamController(WebcamView* parentView);
 
 	void startVideoCapture();
 
-	void changedActiveFilter(FilterTypeEnum filterType);
-	void changedCombinedFiltersActive();
-	void changedActiveCombinedFilters(FilterTypeEnum filterType);
-
 	const cv::Mat* getFilteredMat(FilterTypeEnum filterType);
-
 	const cv::Mat* getCurrentFiltersCombinedFrame();
 
 	int activeFiltersCount;
 	std::unordered_map<FilterTypeEnum, bool> activeFiltersMap;
-	std::unordered_map<FilterTypeEnum, std::string> activeFiltersStrings;
 
 	bool combinedFiltersActive;
 	std::unordered_map<FilterTypeEnum, bool> combinedFilters;
@@ -52,12 +42,20 @@ private:
 	void initVideoCapture();
 	void startVideoCaptureThread();
 
+	void processEvents();
+
 	void generateCameraFrame();
 	void generateGrayscaleRGBFrame();
 	void generateSobelFilteredFrame();
 	void generateCombinedFilteredFrame();
 
 	void combinedFrameInitOrDestroy();
+
+	void processChangedActiveFilters(std::shared_ptr<ViewEvent> event);
+	void processChangedCombinedFiltersActive(std::shared_ptr<ViewEvent> event);
+	void processChangedActiveFiltersOnCombinedFilters(std::shared_ptr<ViewEvent> event);
+
+	void changedActiveCombinedFilters(FilterTypeEnum filterType, bool isActive);
 
 	struct MatAndMutex
 	{
@@ -82,13 +80,14 @@ private:
 		CurrentFiltersCombined
 	};
 
+	// Variables
+	WebcamView* parentView;
+
 	cv::VideoCapture camCapture;
 	cv::Mat currentCamFrame;
 
 	bool videoCaptureCanBeStarted;
 	std::jthread videoCaptureThread;
-
-	std::mutex activeFiltersMutex;
 
 	std::unordered_map<FilterTypeEnum, MatAndMutex> filteredMatsAndMutexesMap;
 

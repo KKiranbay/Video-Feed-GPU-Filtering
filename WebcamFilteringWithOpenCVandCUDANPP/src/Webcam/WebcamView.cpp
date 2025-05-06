@@ -7,11 +7,14 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl2.h>
 
-#include "../Texture/ImageTexture.h"
+#include "Events/ViewEvent_ActivateCombinedFilter.h"
+#include "Events/ViewEvent_ChangeActiveFilters.h"
+#include "Events/ViewEvent_ChangeActiveFiltersOnCombinedFilter.h"
+#include "Texture/ImageTexture.h"
 
 
 WebcamView::WebcamView() :
-	webcamController(WebcamController())
+	webcamController(WebcamController(this))
 {
 	init();
 	initContents();
@@ -23,6 +26,14 @@ WebcamView::WebcamView() :
 	gain = 1.0f;
 
 	webcamController.startVideoCapture();
+	m_combinedFiltersActive = webcamController.combinedFiltersActive;
+	m_activeFiltersMap = webcamController.activeFiltersMap;
+	m_activeFiltersStrings = {
+		{ FilterTypeEnum::None, "None" },
+		{ FilterTypeEnum::Grayscale, "Grayscale" },
+		{ FilterTypeEnum::Sobel, "Sobel" }
+	};
+	m_combinedFilters = webcamController.combinedFilters;
 }
 
 float WebcamView::getGain()
@@ -119,9 +130,9 @@ void WebcamView::showMainContents()
 	ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
 				ImGui::GetIO().Framerate);
 
-	if (ImGui::Checkbox("Combine Filters", &webcamController.combinedFiltersActive))
+	if (ImGui::Checkbox("Combine Filters", &m_combinedFiltersActive))
 	{
-		webcamController.changedCombinedFiltersActive();
+		onActivateCombinedFilterClicked();
 	}
 
 	addFiltersTable();
@@ -152,25 +163,20 @@ void WebcamView::addFilterRow(FilterTypeEnum filterType)
 
 	ImGui::PushID((int)filterType);
 
-	bool& active = webcamController.activeFiltersMap.at(filterType);
-	if (ImGui::Checkbox(webcamController.activeFiltersStrings.at(filterType).c_str(), &active))
+	bool& activeFilter = m_activeFiltersMap.at(filterType);
+	if (ImGui::Checkbox(m_activeFiltersStrings.at(filterType).c_str(), &activeFilter))
 	{
-		webcamController.changedActiveFilter(filterType);
-
-		if (active == false)
-		{
-			webcamController.combinedFilters.at(filterType) = false;
-			webcamController.changedActiveCombinedFilters(filterType);
-		}
+		onActiveFilterComboboxClicked(filterType, activeFilter);
 	}
 
-	if (active)
+	if (activeFilter)
 	{
 		ImGui::TableSetColumnIndex(1);
 
-		if (ImGui::Checkbox("Add", &webcamController.combinedFilters.at(filterType)))
+		bool& activeFilterOnCombined = m_combinedFilters.at(filterType);
+		if (ImGui::Checkbox("Add", &activeFilterOnCombined))
 		{
-			webcamController.changedActiveCombinedFilters(filterType);
+			onActiveFilterOnCombinedFilterComboboxClicked(filterType, activeFilterOnCombined);
 		}
 	}
 
@@ -187,6 +193,7 @@ void WebcamView::show()
 
 	showMainContents();
 
+	// TODO change it so that you get all the textures at once to not cause race condition
 	std::vector<ImageTexture> textures(webcamController.activeFiltersCount);
 	auto textureItr = textures.begin();
 
@@ -199,7 +206,7 @@ void WebcamView::show()
 
 		textureItr->setImage(imageMat);
 
-		std::string& window_name = webcamController.activeFiltersStrings.at(filter.first);
+		std::string& window_name = m_activeFiltersStrings.at(filter.first);
 
 		ImGui::Begin(window_name.c_str());
 
@@ -251,4 +258,38 @@ void WebcamView::startMainLoop()
 	}
 
 	exit();
+}
+
+void WebcamView::addEventToQueue(std::shared_ptr<ViewEvent> viewEvent)
+{
+	m_ViewEventQueue.pushViewEvent(viewEvent);
+}
+
+std::shared_ptr<ViewEvent> WebcamView::getEventFromQueue()
+{
+	return m_ViewEventQueue.popViewEvent();
+}
+
+void WebcamView::onActivateCombinedFilterClicked()
+{
+	std::shared_ptr<ViewEvent_ActivateCombinedFilter> activateCombinedFilter = std::make_shared<ViewEvent_ActivateCombinedFilter>();
+	activateCombinedFilter->setActivateCombinedFilter(m_combinedFiltersActive);
+
+	addEventToQueue(activateCombinedFilter);
+}
+
+void WebcamView::onActiveFilterComboboxClicked(const FilterTypeEnum& filterType, const bool& isActive)
+{
+	std::shared_ptr<ViewEvent_ChangeActiveFilters> changeActiveFilters = std::make_shared<ViewEvent_ChangeActiveFilters>();
+	changeActiveFilters->setActiveFilterType(filterType, isActive);
+
+	addEventToQueue(changeActiveFilters);
+}
+
+void WebcamView::onActiveFilterOnCombinedFilterComboboxClicked(const FilterTypeEnum& filterType, const bool& isAdded)
+{
+	std::shared_ptr<ViewEvent_ChangeActiveFiltersOnCombinedFilter> changeActiveFiltersOnCombinedFilter = std::make_shared<ViewEvent_ChangeActiveFiltersOnCombinedFilter>();
+	changeActiveFiltersOnCombinedFilter->setActiveFilterTypeOnCombined(filterType, isAdded);
+
+	addEventToQueue(changeActiveFiltersOnCombinedFilter);
 }

@@ -9,21 +9,21 @@
 
 #include <opencv4/opencv2/core/mat.hpp>
 
+#include "EventQueues/ViewEventQueue.h"
 #include "WebcamController.h"
 
 
 class WebcamView
 {
+	friend class WebcamController;
+
 public:
 	WebcamView();
 
 	void startMainLoop();
 
-	bool handleEvent();
-
-	void show();
-	void exit();
-	float getGain();
+protected:
+	std::shared_ptr<ViewEvent> getEventFromQueue();
 
 private:
 	void init();
@@ -31,9 +31,23 @@ private:
 	void render();
 	void showMainContents();
 
+	bool handleEvent();
+
+	void show();
+	void exit();
+	float getGain();
+
 	void addFiltersTable();
 	void addFilterRow(FilterTypeEnum filterType);
 
+	void addEventToQueue(std::shared_ptr<ViewEvent> viewEvent);
+
+	// Event functions
+	void onActivateCombinedFilterClicked();
+	void onActiveFilterComboboxClicked(const FilterTypeEnum& filterType, const bool& isActive);
+	void onActiveFilterOnCombinedFilterComboboxClicked(const FilterTypeEnum& filterType, const bool& isAdded);
+
+	// Variables
 	WebcamController webcamController;
 
 	bool windowCreated;
@@ -43,9 +57,17 @@ private:
 	SDL_GLContext gl_context;
 	ImGuiIO* io;
 
-	// static contents
 	ImVec4 clear_color;
 
 	float gain;
+
+	ViewEventQueue m_ViewEventQueue;
+
+	bool m_combinedFiltersActive;
+
+	std::unordered_map<FilterTypeEnum, bool> m_activeFiltersMap;
+	std::unordered_map<FilterTypeEnum, std::string> m_activeFiltersStrings;
+
+	std::unordered_map<FilterTypeEnum, bool> m_combinedFilters;
 };
 

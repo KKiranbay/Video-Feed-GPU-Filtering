@@ -116,7 +116,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)\vcpkg_installed\x64-windows\x64-windows\include\opencv4;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\vcpkg_installed\x64-windows\x64-windows\include\opencv4;$(CUDA_PATH)\include;$(ProjectDir)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -133,7 +133,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(SolutionDir)\vcpkg_installed\x64-windows\x64-windows\include\opencv4;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\vcpkg_installed\x64-windows\x64-windows\include\opencv4;$(CUDA_PATH)\include;$(ProjectDir)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -144,12 +144,23 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\EventQueues\ViewEventQueue.cpp" />
+    <ClCompile Include="src\Events\ViewEvent.cpp" />
+    <ClCompile Include="src\Events\ViewEvent_ActivateCombinedFilter.cpp" />
+    <ClCompile Include="src\Events\ViewEvent_ChangeActiveFiltersOnCombinedFilter.cpp" />
+    <ClCompile Include="src\Events\ViewEvent_ChangeActiveFilters.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Texture\ImageTexture.cpp" />
     <ClCompile Include="src\Webcam\WebcamController.cpp" />
     <ClCompile Include="src\Webcam\WebcamView.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\EventQueues\ViewEventQueue.h" />
+    <ClInclude Include="src\Events\ViewEvent.h" />
+    <ClInclude Include="src\Events\ViewEvent_ActivateCombinedFilter.h" />
+    <ClInclude Include="src\Events\ViewEvent_ChangeActiveFiltersOnCombinedFilter.h" />
+    <ClInclude Include="src\Events\ViewEvent_ChangeActiveFilters.h" />
+    <ClInclude Include="src\Filters\FilterTypes.h" />
     <ClInclude Include="src\Texture\ImageTexture.h" />
     <ClInclude Include="src\Webcam\WebcamController.h" />
     <ClInclude Include="src\Webcam\WebcamView.h" />
