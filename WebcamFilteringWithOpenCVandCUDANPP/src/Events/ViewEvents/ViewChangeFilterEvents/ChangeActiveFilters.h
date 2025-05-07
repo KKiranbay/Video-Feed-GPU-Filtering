@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Events/ViewEvents/ViewChangeFilterEvents/ViewChangeFilterEvent.h"
-#include "Filters/FilterTypes.h"
 
 
 class ChangeActiveFilters:

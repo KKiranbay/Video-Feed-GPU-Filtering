@@ -2,19 +2,16 @@
 
 #include <iostream>
 
-#include <GL/gl3w.h>
-
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl2.h>
 
 #include "Events/ViewEvents/ActivateCombinedFilter.h"
 #include "Events/ViewEvents/ViewChangeFilterEvents/ChangeActiveFilters.h"
 #include "Events/ViewEvents/ViewChangeFilterEvents/ChangeActiveFiltersOnCombinedFilter.h"
-#include "Texture/ImageTexture.h"
 
 
 WebcamView::WebcamView() :
-	webcamController(WebcamController(this))
+	m_WebcamController(WebcamController(this))
 {
 	init();
 	initContents();
@@ -25,15 +22,16 @@ WebcamView::WebcamView() :
 	// dynamic contents
 	gain = 1.0f;
 
-	webcamController.startVideoCapture();
-	m_combinedFiltersActive = webcamController.combinedFiltersActive;
-	m_activeFiltersMap = webcamController.activeFiltersMap;
-	m_activeFiltersStrings = {
+	m_WebcamController.startVideoCapture();
+
+	m_View_CombinedFiltersActive = m_WebcamController.combinedFiltersActive;
+	m_View_ActiveFiltersMap = m_WebcamController.activeFiltersMap;
+	m_View_ActiveFiltersStrings = {
 		{ FilterTypeEnum::None, "None" },
 		{ FilterTypeEnum::Grayscale, "Grayscale" },
 		{ FilterTypeEnum::Sobel, "Sobel" }
 	};
-	m_combinedFilters = webcamController.combinedFilters;
+	m_View_CombinedFilters = m_WebcamController.combinedFilters;
 }
 
 float WebcamView::getGain()
@@ -130,7 +128,7 @@ void WebcamView::showMainContents()
 	ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
 				ImGui::GetIO().Framerate);
 
-	if (ImGui::Checkbox("Combine Filters", &m_combinedFiltersActive))
+	if (ImGui::Checkbox("Combine Filters", &m_View_CombinedFiltersActive))
 	{
 		onActivateCombinedFilterClicked();
 	}
@@ -163,8 +161,8 @@ void WebcamView::addFilterRow(FilterTypeEnum filterType)
 
 	ImGui::PushID((int)filterType);
 
-	bool& activeFilter = m_activeFiltersMap.at(filterType);
-	if (ImGui::Checkbox(m_activeFiltersStrings.at(filterType).c_str(), &activeFilter))
+	bool& activeFilter = m_View_ActiveFiltersMap.at(filterType);
+	if (ImGui::Checkbox(m_View_ActiveFiltersStrings.at(filterType).c_str(), &activeFilter))
 	{
 		onActiveFilterComboboxClicked(filterType, activeFilter);
 	}
@@ -173,7 +171,7 @@ void WebcamView::addFilterRow(FilterTypeEnum filterType)
 	{
 		ImGui::TableSetColumnIndex(1);
 
-		bool& activeFilterOnCombined = m_combinedFilters.at(filterType);
+		bool& activeFilterOnCombined = m_View_CombinedFilters.at(filterType);
 		if (ImGui::Checkbox("Add", &activeFilterOnCombined))
 		{
 			onActiveFilterOnCombinedFilterComboboxClicked(filterType, activeFilterOnCombined);
@@ -181,6 +179,47 @@ void WebcamView::addFilterRow(FilterTypeEnum filterType)
 	}
 
 	ImGui::PopID();
+}
+
+void WebcamView::showFilters()
+{
+	m_WebcamController.getMats(m_ViewsWebcamMats);
+
+	if (m_ViewsWebcamMats.activeMatsCount)
+	{
+		m_FilteredTextures = std::vector<ImageTexture>(m_ViewsWebcamMats.activeMatsCount);
+		auto filteredTextureItr = m_FilteredTextures.begin();
+		for (auto& filteredMat : m_ViewsWebcamMats.m_filteredMatsMap)
+		{
+			if (filteredMat.second.empty())
+				continue;
+
+			std::string& window_name = m_View_ActiveFiltersStrings.at(filteredMat.first);
+
+			filteredTextureItr->setImage(&filteredMat.second);
+
+			ImGui::Begin(window_name.c_str());
+			ImGui::Image((ImTextureID)(intptr_t)filteredTextureItr->getOpenglTexture(), filteredTextureItr->getSize());
+			ImGui::End();
+
+			filteredTextureItr++;
+		}
+	}
+
+	if (m_ViewsWebcamMats.currentFiltersCombinedMat.empty() == false)
+	{
+		m_CombinedTexture.setImage(&m_ViewsWebcamMats.currentFiltersCombinedMat);
+
+		ImGui::Begin("Filters Combined");
+		ImGui::Image((ImTextureID)(intptr_t)m_CombinedTexture.getOpenglTexture(), m_CombinedTexture.getSize());
+		ImGui::End();
+	}
+}
+
+void WebcamView::clearTextures()
+{
+	m_FilteredTextures.clear();
+	m_CombinedTexture.release();
 }
 
 void WebcamView::show()
@@ -192,47 +231,11 @@ void WebcamView::show()
 	ImGui::NewFrame();
 
 	showMainContents();
-
-	// TODO change it so that you get all the textures at once to not cause race condition
-	WebcamMats webcamMats = webcamController.getMats();
-	std::vector<ImageTexture> textures(webcamMats.activeMatsCount);
-	auto textureItr = textures.begin();
-
-	for (const auto& mat : webcamMats.filteredMatsMap)
-	{
-		if (mat.second.empty()) // inactive
-			continue;
-
-		const cv::Mat* imageMat = &mat.second;
-
-		textureItr->setImage(imageMat);
-
-		std::string& window_name = m_activeFiltersStrings.at(mat.first);
-
-		ImGui::Begin(window_name.c_str());
-
-		ImGui::Image((ImTextureID)(intptr_t)textureItr->getOpenglTexture(), textureItr->getSize());
-
-		ImGui::End();
-
-		textureItr++;
-	}
-
-	ImageTexture combinedTexture;
-
-	if (webcamMats.currentFiltersCombinedMat.empty() == false)
-	{
-		const cv::Mat* imageMat = &webcamMats.currentFiltersCombinedMat;
-		combinedTexture.setImage(imageMat);
-
-		ImGui::Begin("Filters Combined");
-
-		ImGui::Image((ImTextureID)(intptr_t)combinedTexture.getOpenglTexture(), combinedTexture.getSize());
-
-		ImGui::End();
-	}
+	showFilters();
 
 	render();
+
+	clearTextures();
 }
 
 bool WebcamView::handleEvent()
@@ -274,7 +277,7 @@ std::shared_ptr<ViewEvent> WebcamView::getEventFromQueue()
 void WebcamView::onActivateCombinedFilterClicked()
 {
 	std::shared_ptr<ActivateCombinedFilter> activateCombinedFilter = std::make_shared<ActivateCombinedFilter>();
-	activateCombinedFilter->setActivateCombinedFilter(m_combinedFiltersActive);
+	activateCombinedFilter->setActivateCombinedFilter(m_View_CombinedFiltersActive);
 
 	addEventToQueue(activateCombinedFilter);
 }

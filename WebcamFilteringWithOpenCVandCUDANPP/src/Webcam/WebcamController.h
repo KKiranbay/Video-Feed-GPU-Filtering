@@ -1,10 +1,8 @@
 #pragma once
 
-#include <array>
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <unordered_map>
 
 #include <nppdefs.h>
 
@@ -25,9 +23,7 @@ public:
 
 	void startVideoCapture();
 
-	const cv::Mat* getFilteredMat(FilterTypeEnum filterType);
-	const cv::Mat* getCurrentFiltersCombinedFrame();
-	WebcamMats getMats();
+	void getMats(WebcamMats& webcamMatsFromView);
 
 	int activeFiltersCount;
 	std::unordered_map<FilterTypeEnum, bool> activeFiltersMap;
@@ -37,7 +33,6 @@ public:
 
 private:
 	void initVariables();
-	void initFilteredMatsAndMutexesMap();
 	void initGpuMatsAndMutexesMap();
 
 	void initVideoCapture();
@@ -59,22 +54,7 @@ private:
 	void processChangedCombinedFiltersActive(std::shared_ptr<ViewEvent> event);
 	void processChangedActiveFiltersOnCombinedFilters(std::shared_ptr<ViewEvent> event);
 
-	void changedActiveCombinedFilters(FilterTypeEnum filterType, bool isActive);
-
-	WebcamMats webcamMats;
-	std::mutex m_WebcamMatsMutex;
-
-	struct MatAndMutex
-	{
-		cv::Mat mat;
-		std::mutex matMutex;
-	};
-
-	struct GpuMatAndMutex
-	{
-		cv::cuda::GpuMat gpuMat;
-		std::mutex gpuMutex;
-	};
+	void changeActiveCombinedFilters(FilterTypeEnum filterType, bool isActive);
 
 	enum class GPUMatTypesEnum
 	{
@@ -90,19 +70,17 @@ private:
 	// Variables
 	WebcamView* parentView;
 
+	WebcamMats m_ControllersWebcamMats;
+	std::mutex m_WebcamMatsMutex;
+
 	cv::VideoCapture camCapture;
 	cv::Mat currentCamFrame;
 
 	bool videoCaptureCanBeStarted;
 	std::jthread videoCaptureThread;
 
-	std::unordered_map<FilterTypeEnum, MatAndMutex> filteredMatsAndMutexesMap;
-
-	MatAndMutex currentFiltersCombinedMatAndMutex;
-
-	std::mutex combinedFiltersCountMutex;
 	int combinedFiltersCount;
 
-	std::unordered_map<GPUMatTypesEnum, GpuMatAndMutex> gpuMatsAndMutexesMap;
+	std::unordered_map<GPUMatTypesEnum, cv::cuda::GpuMat> gpuMatsMap;
 };
 

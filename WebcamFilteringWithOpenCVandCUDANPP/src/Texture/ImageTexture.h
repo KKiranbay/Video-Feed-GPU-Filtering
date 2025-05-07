@@ -14,6 +14,7 @@ public:
 	void release();
 
 	void setImage(const cv::Mat* frame);
+
 	void* getOpenglTexture();
 	ImVec2 getSize();
 
