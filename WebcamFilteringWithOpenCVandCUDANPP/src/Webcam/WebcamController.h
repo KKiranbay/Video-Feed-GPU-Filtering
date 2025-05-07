@@ -11,12 +11,12 @@
 #include <opencv4/opencv2/core/cuda.hpp>
 #include <opencv4/opencv2/videoio.hpp>
 
-#define NOMINMAX
-#include "Texture/ImageTexture.h"
 #include "Filters/FilterTypes.h"
-#include "Events/ViewEvent.h"
+#include "WebcamMats.h"
 
+class ViewEvent;
 class WebcamView;
+
 
 class WebcamController
 {
@@ -27,6 +27,7 @@ public:
 
 	const cv::Mat* getFilteredMat(FilterTypeEnum filterType);
 	const cv::Mat* getCurrentFiltersCombinedFrame();
+	WebcamMats getMats();
 
 	int activeFiltersCount;
 	std::unordered_map<FilterTypeEnum, bool> activeFiltersMap;
@@ -44,6 +45,9 @@ private:
 
 	void processEvents();
 
+	void flipCameraFrame();
+	void generateActiveFilters();
+
 	void generateCameraFrame();
 	void generateGrayscaleRGBFrame();
 	void generateSobelFilteredFrame();
@@ -56,6 +60,9 @@ private:
 	void processChangedActiveFiltersOnCombinedFilters(std::shared_ptr<ViewEvent> event);
 
 	void changedActiveCombinedFilters(FilterTypeEnum filterType, bool isActive);
+
+	WebcamMats webcamMats;
+	std::mutex m_WebcamMatsMutex;
 
 	struct MatAndMutex
 	{

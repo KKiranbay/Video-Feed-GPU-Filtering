@@ -7,9 +7,9 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl2.h>
 
-#include "Events/ViewEvent_ActivateCombinedFilter.h"
-#include "Events/ViewEvent_ChangeActiveFilters.h"
-#include "Events/ViewEvent_ChangeActiveFiltersOnCombinedFilter.h"
+#include "Events/ViewEvents/ActivateCombinedFilter.h"
+#include "Events/ViewEvents/ViewChangeFilterEvents/ChangeActiveFilters.h"
+#include "Events/ViewEvents/ViewChangeFilterEvents/ChangeActiveFiltersOnCombinedFilter.h"
 #include "Texture/ImageTexture.h"
 
 
@@ -194,19 +194,20 @@ void WebcamView::show()
 	showMainContents();
 
 	// TODO change it so that you get all the textures at once to not cause race condition
-	std::vector<ImageTexture> textures(webcamController.activeFiltersCount);
+	WebcamMats webcamMats = webcamController.getMats();
+	std::vector<ImageTexture> textures(webcamMats.activeMatsCount);
 	auto textureItr = textures.begin();
 
-	for (const auto& filter : webcamController.activeFiltersMap)
+	for (const auto& mat : webcamMats.filteredMatsMap)
 	{
-		if (filter.second == false) // inactive
+		if (mat.second.empty()) // inactive
 			continue;
 
-		const cv::Mat* imageMat = webcamController.getFilteredMat(filter.first);
+		const cv::Mat* imageMat = &mat.second;
 
 		textureItr->setImage(imageMat);
 
-		std::string& window_name = m_activeFiltersStrings.at(filter.first);
+		std::string& window_name = m_activeFiltersStrings.at(mat.first);
 
 		ImGui::Begin(window_name.c_str());
 
@@ -219,9 +220,9 @@ void WebcamView::show()
 
 	ImageTexture combinedTexture;
 
-	if (webcamController.combinedFiltersActive)
+	if (webcamMats.currentFiltersCombinedMat.empty() == false)
 	{
-		const cv::Mat* imageMat = webcamController.getCurrentFiltersCombinedFrame();
+		const cv::Mat* imageMat = &webcamMats.currentFiltersCombinedMat;
 		combinedTexture.setImage(imageMat);
 
 		ImGui::Begin("Filters Combined");
@@ -272,7 +273,7 @@ std::shared_ptr<ViewEvent> WebcamView::getEventFromQueue()
 
 void WebcamView::onActivateCombinedFilterClicked()
 {
-	std::shared_ptr<ViewEvent_ActivateCombinedFilter> activateCombinedFilter = std::make_shared<ViewEvent_ActivateCombinedFilter>();
+	std::shared_ptr<ActivateCombinedFilter> activateCombinedFilter = std::make_shared<ActivateCombinedFilter>();
 	activateCombinedFilter->setActivateCombinedFilter(m_combinedFiltersActive);
 
 	addEventToQueue(activateCombinedFilter);
@@ -280,7 +281,7 @@ void WebcamView::onActivateCombinedFilterClicked()
 
 void WebcamView::onActiveFilterComboboxClicked(const FilterTypeEnum& filterType, const bool& isActive)
 {
-	std::shared_ptr<ViewEvent_ChangeActiveFilters> changeActiveFilters = std::make_shared<ViewEvent_ChangeActiveFilters>();
+	std::shared_ptr<ChangeActiveFilters> changeActiveFilters = std::make_shared<ChangeActiveFilters>();
 	changeActiveFilters->setActiveFilterType(filterType, isActive);
 
 	addEventToQueue(changeActiveFilters);
@@ -288,7 +289,7 @@ void WebcamView::onActiveFilterComboboxClicked(const FilterTypeEnum& filterType,
 
 void WebcamView::onActiveFilterOnCombinedFilterComboboxClicked(const FilterTypeEnum& filterType, const bool& isAdded)
 {
-	std::shared_ptr<ViewEvent_ChangeActiveFiltersOnCombinedFilter> changeActiveFiltersOnCombinedFilter = std::make_shared<ViewEvent_ChangeActiveFiltersOnCombinedFilter>();
+	std::shared_ptr<ChangeActiveFiltersOnCombinedFilter> changeActiveFiltersOnCombinedFilter = std::make_shared<ChangeActiveFiltersOnCombinedFilter>();
 	changeActiveFiltersOnCombinedFilter->setActiveFilterTypeOnCombined(filterType, isAdded);
 
 	addEventToQueue(changeActiveFiltersOnCombinedFilter);

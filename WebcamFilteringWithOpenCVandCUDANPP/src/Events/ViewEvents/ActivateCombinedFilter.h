@@ -1,12 +1,13 @@
 #pragma once
 
-#include "ViewEvent.h"
+#include "Events/ViewEvents/ViewEvent.h"
 
-class ViewEvent_ActivateCombinedFilter:
+
+class ActivateCombinedFilter:
 	public ViewEvent
 {
 public:
-	ViewEvent_ActivateCombinedFilter();
+	ActivateCombinedFilter();
 
 	void setActivateCombinedFilter(const bool activateCombinedFilter);
 	bool getActivateCombinedFilter();

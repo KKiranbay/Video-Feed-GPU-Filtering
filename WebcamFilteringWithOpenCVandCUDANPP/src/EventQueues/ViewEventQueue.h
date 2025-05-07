@@ -4,7 +4,7 @@
 #include <mutex>
 #include <queue>
 
-#include "Events/ViewEvent.h"
+#include "Events/ViewEvents/ViewEvent.h"
 
 
 class ViewEventQueue

@@ -1,9 +1,5 @@
 #include "ViewEvent.h"
 
-ViewEvent::ViewEvent() :
-	m_ViewEventType(ViewEventTypesEnum::None)
-{
-}
 
 ViewEvent::ViewEvent(const ViewEventTypesEnum& eventType) :
 	m_ViewEventType(eventType)

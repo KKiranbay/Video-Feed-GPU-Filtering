@@ -9,9 +9,9 @@
 #include <opencv4/opencv2/cudaarithm.hpp>
 #include <opencv4/opencv2/cudaimgproc.hpp>
 
-#include "Events/ViewEvent_ActivateCombinedFilter.h"
-#include "Events/ViewEvent_ChangeActiveFilters.h"
-#include "Events/ViewEvent_ChangeActiveFiltersOnCombinedFilter.h"
+#include "Events/ViewEvents/ActivateCombinedFilter.h"
+#include "Events/ViewEvents/ViewChangeFilterEvents/ChangeActiveFilters.h"
+#include "Events/ViewEvents/ViewChangeFilterEvents/ChangeActiveFiltersOnCombinedFilter.h"
 
 #include "WebcamView.h"
 
@@ -32,8 +32,6 @@ void WebcamController::initVariables()
 		{ FilterTypeEnum::Grayscale, false },
 		{ FilterTypeEnum::Sobel, false }
 	};
-
-
 
 	combinedFiltersActive = false;
 	combinedFiltersCount = 0;
@@ -149,52 +147,9 @@ void WebcamController::startVideoCaptureThread()
 		if (activeFiltersCount == 0)
 			continue;
 
-		GpuMatAndMutex& camFrameGpuMatAndMutex = gpuMatsAndMutexesMap.at(GPUMatTypesEnum::CamFrame);
-		cv::cuda::GpuMat& camFrameGpuMat = camFrameGpuMatAndMutex.gpuMat;
-		camFrameGpuMat.upload(currentCamFrame);
-		cv::cuda::flip(camFrameGpuMat, camFrameGpuMat, 1);
+		flipCameraFrame();
 
-		std::vector<std::thread> generateFramesThreads(activeFiltersCount);
-
-		for (const auto& filter : activeFiltersMap)
-		{
-			if (filter.second == false)
-				continue;
-
-			switch (filter.first)
-			{
-				case FilterTypeEnum::None:
-				{
-					generateFramesThreads.emplace_back(&WebcamController::generateCameraFrame, this);
-					break;
-				}
-				case FilterTypeEnum::Grayscale:
-				{
-					generateFramesThreads.emplace_back(&WebcamController::generateGrayscaleRGBFrame, this);
-					break;
-				}
-				case FilterTypeEnum::Sobel:
-				{
-					generateFramesThreads.emplace_back(&WebcamController::generateSobelFilteredFrame, this);
-					break;
-				}
-				default:
-					break;
-			}
-		}
-
-		for (auto& thread : generateFramesThreads)
-		{
-			if (thread.joinable())
-				thread.join();
-		}
-
-		if (combinedFiltersActive
-			&& combinedFiltersCount != 0
-			&& gpuMatsAndMutexesMap.find(GPUMatTypesEnum::CurrentFiltersCombined) != gpuMatsAndMutexesMap.end())
-		{
-			generateCombinedFilteredFrame();
-		}
+		generateActiveFilters();
 	}
 }
 
@@ -218,12 +173,178 @@ void WebcamController::processEvents()
 	}
 }
 
+void WebcamController::processChangedActiveFilters(std::shared_ptr<ViewEvent> event)
+{
+	std::shared_ptr<ChangeActiveFilters> changeActiveFiltersEventPtr = std::static_pointer_cast<ChangeActiveFilters>(event);
+
+	FilterTypeEnum filterType = changeActiveFiltersEventPtr->getFilterType();
+	bool isActive = changeActiveFiltersEventPtr->getIsActive();
+
+	activeFiltersMap.at(filterType) = isActive;
+
+	if (isActive)
+	{
+		activeFiltersCount++;
+		{
+			filteredMatsAndMutexesMap.at(filterType).mat.create(currentCamFrame.size(), currentCamFrame.type());
+		}
+
+		if (activeFiltersCount == 1)
+		{
+			gpuMatsAndMutexesMap.at(GPUMatTypesEnum::CamFrame).gpuMat.create(currentCamFrame.size(), currentCamFrame.type());
+		}
+
+		switch (filterType)
+		{
+			case FilterTypeEnum::Grayscale:
+			{
+				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::GrayFrame).gpuMat.create(currentCamFrame.size(), CV_8UC1);
+				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::GrayFrameRGB).gpuMat.create(currentCamFrame.size(), currentCamFrame.type());
+				break;
+			}
+			case FilterTypeEnum::Sobel:
+			{
+				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelFrame).gpuMat.create(currentCamFrame.size(), currentCamFrame.type());
+				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelGradXGpu).gpuMat.create(currentCamFrame.size(), currentCamFrame.type());
+				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelGradYGpu).gpuMat.create(currentCamFrame.size(), currentCamFrame.type());
+				break;
+			}
+			default:
+				break;
+		}
+	}
+	else
+	{
+		{
+			std::lock_guard<std::mutex> lock(m_WebcamMatsMutex);
+			webcamMats.filteredMatsMap.at(filterType).release();
+			webcamMats.activeMatsCount--;
+		}
+
+		activeFiltersCount--;
+
+		filteredMatsAndMutexesMap.at(filterType).mat.release();
+
+		switch (filterType)
+		{
+			case FilterTypeEnum::Grayscale:
+			{
+				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::GrayFrame).gpuMat.release();
+				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::GrayFrameRGB).gpuMat.release();
+				break;
+			}
+			case FilterTypeEnum::Sobel:
+			{
+				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelFrame).gpuMat.release();
+				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelGradXGpu).gpuMat.release();
+				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelGradYGpu).gpuMat.release();
+				break;
+			}
+			default:
+				break;
+		}
+	}
+
+	if (isActive == false && combinedFilters.at(filterType))
+	{
+		combinedFilters.at(filterType) = false;
+		changedActiveCombinedFilters(filterType, false);
+	}
+}
+
+void WebcamController::processChangedCombinedFiltersActive(std::shared_ptr<ViewEvent> event)
+{
+	combinedFiltersActive = std::static_pointer_cast<ActivateCombinedFilter>(event)->getActivateCombinedFilter();
+
+	combinedFrameInitOrDestroy();
+}
+
+void WebcamController::processChangedActiveFiltersOnCombinedFilters(std::shared_ptr<ViewEvent> event)
+{
+	std::shared_ptr<ChangeActiveFiltersOnCombinedFilter> changeActiveFiltersOnCombinedFilterEventPtr = std::static_pointer_cast<ChangeActiveFiltersOnCombinedFilter>(event);
+
+	changedActiveCombinedFilters(changeActiveFiltersOnCombinedFilterEventPtr->getFilterType(), changeActiveFiltersOnCombinedFilterEventPtr->getIsActive());
+}
+
+void WebcamController::changedActiveCombinedFilters(FilterTypeEnum filterType, bool isActive)
+{
+	if (combinedFilters.at(filterType) = isActive)
+	{
+		combinedFiltersCount++;
+	}
+	else
+	{
+		combinedFiltersCount--;
+	}
+
+	combinedFrameInitOrDestroy();
+}
+
+void WebcamController::flipCameraFrame()
+{
+	GpuMatAndMutex& camFrameGpuMatAndMutex = gpuMatsAndMutexesMap.at(GPUMatTypesEnum::CamFrame);
+	cv::cuda::GpuMat& camFrameGpuMat = camFrameGpuMatAndMutex.gpuMat;
+	camFrameGpuMat.upload(currentCamFrame);
+	cv::cuda::flip(camFrameGpuMat, camFrameGpuMat, 1);
+}
+
+void WebcamController::generateActiveFilters()
+{
+	std::vector<std::thread> generateFramesThreads(activeFiltersCount);
+
+	for (const auto& filter : activeFiltersMap)
+	{
+		if (filter.second == false)
+			continue;
+
+		switch (filter.first)
+		{
+			case FilterTypeEnum::None:
+			{
+				generateFramesThreads.emplace_back(&WebcamController::generateCameraFrame, this);
+				break;
+			}
+			case FilterTypeEnum::Grayscale:
+			{
+				generateFramesThreads.emplace_back(&WebcamController::generateGrayscaleRGBFrame, this);
+				break;
+			}
+			case FilterTypeEnum::Sobel:
+			{
+				generateFramesThreads.emplace_back(&WebcamController::generateSobelFilteredFrame, this);
+				break;
+			}
+			default:
+				break;
+		}
+	}
+
+	for (auto& thread : generateFramesThreads)
+	{
+		if (thread.joinable())
+			thread.join();
+	}
+
+	if (combinedFiltersActive
+		&& combinedFiltersCount != 0
+		&& gpuMatsAndMutexesMap.find(GPUMatTypesEnum::CurrentFiltersCombined) != gpuMatsAndMutexesMap.end())
+	{
+		generateCombinedFilteredFrame();
+	}
+}
+
 // Generate function is used by the thread for capturing frames
 void WebcamController::generateCameraFrame()
 {
 	std::lock_guard<std::mutex> lockFilterMutexes(filteredMatsAndMutexesMap.at(FilterTypeEnum::None).matMutex);
 	std::lock_guard<std::mutex> lockCamFrameGpuMat(gpuMatsAndMutexesMap.at(GPUMatTypesEnum::CamFrame).gpuMutex);
 	gpuMatsAndMutexesMap.at(GPUMatTypesEnum::CamFrame).gpuMat.download(filteredMatsAndMutexesMap.at(FilterTypeEnum::None).mat);
+
+	std::lock_guard<std::mutex> lock(m_WebcamMatsMutex);
+	cv::Mat& webcamMat = webcamMats.filteredMatsMap.at(FilterTypeEnum::None);
+	if (webcamMat.empty())
+		webcamMats.activeMatsCount++;
+	webcamMat = filteredMatsAndMutexesMap.at(FilterTypeEnum::None).mat;
 }
 
 // Generate function is used by the thread for capturing frames
@@ -256,6 +377,12 @@ void WebcamController::generateGrayscaleRGBFrame()
 	MatAndMutex& grayscaleFrameMatAndMutex = filteredMatsAndMutexesMap.at(FilterTypeEnum::Grayscale);
 	std::lock_guard<std::mutex> lockFilterMutexes(grayscaleFrameMatAndMutex.matMutex);
 	grayFrameRGBGpuMat.download(grayscaleFrameMatAndMutex.mat);
+
+	std::lock_guard<std::mutex> lock(m_WebcamMatsMutex);
+	cv::Mat& webcamMat = webcamMats.filteredMatsMap.at(FilterTypeEnum::Grayscale);
+	if (webcamMat.empty())
+		webcamMats.activeMatsCount++;
+	webcamMat = grayscaleFrameMatAndMutex.mat;
 }
 
 // Generate function is used by the thread for capturing frames
@@ -310,6 +437,12 @@ void WebcamController::generateSobelFilteredFrame()
 	MatAndMutex& sobelFrameMatAndMutex = filteredMatsAndMutexesMap.at(FilterTypeEnum::Sobel);
 	std::lock_guard<std::mutex> lockSobelFrameMatMutex(sobelFrameMatAndMutex.matMutex);
 	sobelFrameGpuMat.download(sobelFrameMatAndMutex.mat);
+
+	std::lock_guard<std::mutex> lock(m_WebcamMatsMutex);
+	cv::Mat& webcamMat = webcamMats.filteredMatsMap.at(FilterTypeEnum::Sobel);
+	if (webcamMat.empty())
+		webcamMats.activeMatsCount++;
+	webcamMat = sobelFrameMatAndMutex.mat;
 }
 
 // Generate function is used by the thread for capturing frames
@@ -371,6 +504,9 @@ void WebcamController::generateCombinedFilteredFrame()
 
 	std::lock_guard<std::mutex> lockCurrentFiltersCombinedMatMutex(currentFiltersCombinedMatAndMutex.matMutex);
 	currentFiltersCombinedFrameGpuMat.download(currentFiltersCombinedMatAndMutex.mat);
+
+	std::lock_guard<std::mutex> lock(m_WebcamMatsMutex);
+	webcamMats.currentFiltersCombinedMat = currentFiltersCombinedMatAndMutex.mat;
 }
 
 void WebcamController::combinedFrameInitOrDestroy()
@@ -387,6 +523,9 @@ void WebcamController::combinedFrameInitOrDestroy()
 	{
 		currentFiltersCombinedMatAndMutex.mat.release();
 		currentFiltersCombinedGpuMatAndMutex.gpuMat.release();
+
+		std::lock_guard<std::mutex> lock(m_WebcamMatsMutex);
+		webcamMats.currentFiltersCombinedMat.release();
 	}
 }
 
@@ -403,103 +542,8 @@ const cv::Mat* WebcamController::getCurrentFiltersCombinedFrame()
 	return &currentFiltersCombinedMatAndMutex.mat;
 }
 
-void WebcamController::processChangedActiveFilters(std::shared_ptr<ViewEvent> event)
+WebcamMats WebcamController::getMats()
 {
-	std::shared_ptr<ViewEvent_ChangeActiveFilters> changeActiveFiltersEventPtr = std::static_pointer_cast<ViewEvent_ChangeActiveFilters>(event);
-
-	FilterTypeEnum filterType = changeActiveFiltersEventPtr->getFilterType();
-	bool isActive = changeActiveFiltersEventPtr->getIsActive();
-
-	activeFiltersMap.at(filterType) = isActive;
-
-	if (isActive)
-	{
-		activeFiltersCount++;
-		{
-			filteredMatsAndMutexesMap.at(filterType).mat.create(currentCamFrame.size(), currentCamFrame.type());
-		}
-
-		if (activeFiltersCount == 1)
-		{
-			gpuMatsAndMutexesMap.at(GPUMatTypesEnum::CamFrame).gpuMat.create(currentCamFrame.size(), currentCamFrame.type());
-		}
-
-		switch (filterType)
-		{
-			case FilterTypeEnum::Grayscale:
-			{
-				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::GrayFrame).gpuMat.create(currentCamFrame.size(), CV_8UC1);
-				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::GrayFrameRGB).gpuMat.create(currentCamFrame.size(), currentCamFrame.type());
-				break;
-			}
-			case FilterTypeEnum::Sobel:
-			{
-				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelFrame).gpuMat.create(currentCamFrame.size(), currentCamFrame.type());
-				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelGradXGpu).gpuMat.create(currentCamFrame.size(), currentCamFrame.type());
-				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelGradYGpu).gpuMat.create(currentCamFrame.size(), currentCamFrame.type());
-				break;
-			}
-			default:
-				break;
-		}
-	}
-	else
-	{
-		activeFiltersCount--;
-
-		filteredMatsAndMutexesMap.at(filterType).mat.release();
-
-		switch (filterType)
-		{
-			case FilterTypeEnum::Grayscale:
-			{
-				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::GrayFrame).gpuMat.release();
-				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::GrayFrameRGB).gpuMat.release();
-				break;
-			}
-			case FilterTypeEnum::Sobel:
-			{
-				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelFrame).gpuMat.release();
-				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelGradXGpu).gpuMat.release();
-				gpuMatsAndMutexesMap.at(GPUMatTypesEnum::SobelGradYGpu).gpuMat.release();
-				break;
-			}
-			default:
-				break;
-		}
-	}
-
-	if (isActive == false && combinedFilters.at(filterType))
-	{
-		combinedFilters.at(filterType) = false;
-		changedActiveCombinedFilters(filterType, false);
-	}
-}
-
-void WebcamController::processChangedCombinedFiltersActive(std::shared_ptr<ViewEvent> event)
-{
-	combinedFiltersActive = std::static_pointer_cast<ViewEvent_ActivateCombinedFilter>(event)->getActivateCombinedFilter();
-
-	combinedFrameInitOrDestroy();
-}
-
-void WebcamController::processChangedActiveFiltersOnCombinedFilters(std::shared_ptr<ViewEvent> event)
-{
-	std::shared_ptr<ViewEvent_ChangeActiveFiltersOnCombinedFilter> changeActiveFiltersOnCombinedFilterEventPtr = std::static_pointer_cast<ViewEvent_ChangeActiveFiltersOnCombinedFilter>(event);
-
-	changedActiveCombinedFilters(changeActiveFiltersOnCombinedFilterEventPtr->getFilterType(), changeActiveFiltersOnCombinedFilterEventPtr->getIsActive());
-}
-
-void WebcamController::changedActiveCombinedFilters(FilterTypeEnum filterType, bool isActive)
-{
-	if (combinedFilters.at(filterType) = isActive)
-	{
-		combinedFiltersCount++;
-	}
-	else
-	{
-		combinedFiltersCount--;
-	}
-
-	combinedFrameInitOrDestroy();
+	std::lock_guard<std::mutex> lock(m_WebcamMatsMutex);
+	return webcamMats;
 }

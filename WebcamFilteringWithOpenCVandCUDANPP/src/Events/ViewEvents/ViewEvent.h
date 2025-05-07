@@ -1,17 +1,11 @@
 #pragma once
 
-enum class ViewEventTypesEnum
-{
-	ActivateCombinedFilter,
-	ChangeActiveFilters,
-	ChangeActiveFiltersOnCombinedFilter,
-	None
-};
+#include "Events/ViewEvents/ViewEventTypes.h"
+
 
 class ViewEvent
 {
 public:
-	ViewEvent();
 	virtual ~ViewEvent();
 
 	const ViewEventTypesEnum& getViewEventType();

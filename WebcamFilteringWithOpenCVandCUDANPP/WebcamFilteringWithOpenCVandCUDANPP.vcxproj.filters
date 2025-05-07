@@ -30,16 +30,19 @@
     <ClCompile Include="src\Webcam\WebcamView.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Events\ViewEvent.cpp">
+    <ClCompile Include="src\Events\ViewEvents\ViewEvent.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Events\ViewEvent_ActivateCombinedFilter.cpp">
+    <ClCompile Include="src\Events\ViewEvents\ActivateCombinedFilter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Events\ViewEvent_ChangeActiveFiltersOnCombinedFilter.cpp">
+    <ClCompile Include="src\Events\ViewEvents\ViewChangeFilterEvents\ChangeActiveFiltersOnCombinedFilter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Events\ViewEvent_ChangeActiveFilters.cpp">
+    <ClCompile Include="src\Events\ViewEvents\ViewChangeFilterEvents\ChangeActiveFilters.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Events\ViewEvents\ViewChangeFilterEvents\ViewChangeFilterEvent.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -47,7 +50,7 @@
     <ClInclude Include="src\EventQueues\ViewEventQueue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Events\ViewEvent.h">
+    <ClInclude Include="src\Events\ViewEvents\ViewEvent.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Texture\ImageTexture.h">
@@ -59,16 +62,25 @@
     <ClInclude Include="src\Webcam\WebcamView.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Events\ViewEvent_ChangeActiveFilters.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Events\ViewEvent_ActivateCombinedFilter.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Events\ViewEvent_ChangeActiveFiltersOnCombinedFilter.h">
+    <ClInclude Include="src\Events\ViewEvents\ActivateCombinedFilter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Filters\FilterTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Events\ViewEvents\ViewEventTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Events\ViewEvents\ViewChangeFilterEvents\ChangeActiveFiltersOnCombinedFilter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Events\ViewEvents\ViewChangeFilterEvents\ChangeActiveFilters.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Events\ViewEvents\ViewChangeFilterEvents\ViewChangeFilterEvent.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Webcam\WebcamMats.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
