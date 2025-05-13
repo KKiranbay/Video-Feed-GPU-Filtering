@@ -1,7 +1,3 @@
-Okay, here's a rewritten version suitable for a Markdown file, with some minor enhancements for clarity and formatting:
-
-Markdown
-
 # Video Feed GPU Filtering
 
 ## Description
