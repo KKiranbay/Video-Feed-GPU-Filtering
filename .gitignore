@@ -2,7 +2,4 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
-/.vs/WebcamFilteringWithOpenCVandCUDANPP
-/vcpkg_installed/x64-windows
-/WebcamFilteringWithOpenCVandCUDANPP/imgui.ini
-/bin
+/build

@@ -1,20 +1,20 @@
 {
-  "name": "cudatutorial-01",
-  "version-string": "1.0.0",
+  "name": "webcamfilteringwithopencvandcudanpp",
+  "version-string": "0.1.0",
   "dependencies": [
     {
       "name": "gl3w"
     },
-    {
-      "name": "sdl2"
+	{
+      "name": "imgui",
+      "features": [ "opengl3-binding", "sdl2-binding" ]
     },
-    {
+	{
       "name": "opencv",
       "features": [ "cuda" ]
     },
     {
-      "name": "imgui",
-      "features": [ "opengl3-binding", "sdl2-binding" ]
+      "name": "sdl2"
     }
   ]
 }
