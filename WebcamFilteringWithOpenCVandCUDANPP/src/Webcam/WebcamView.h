@@ -46,6 +46,10 @@ private:
 
 	// View Variables
 	SDL_Window* window;
+	int m_windowWidht;
+	int m_windowHeight;
+	float m_mainContentsWidth;
+
 	SDL_GLContext gl_context;
 	ImGuiIO* io;
 

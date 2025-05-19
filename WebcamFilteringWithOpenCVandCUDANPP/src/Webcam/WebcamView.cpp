@@ -121,19 +121,30 @@ void WebcamView::render()
 
 void WebcamView::showMainContents()
 {
-	ImGui::Begin("Main");
+	ImGui::SetNextWindowPos(ImVec2(0, 0));
+
+	SDL_GetWindowSize(window, &m_windowWidht, &m_windowHeight);
+	m_mainContentsWidth = m_windowWidht * 0.15f;
+	ImGui::SetNextWindowSize(ImVec2(m_mainContentsWidth, static_cast<float>(m_windowHeight)));
+
+	ImGuiWindowFlags mainContentsFlags = 
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoBringToFrontOnFocus;
+	ImGui::Begin("Main Contents", nullptr, mainContentsFlags);
 
 	ImGui::SliderFloat("gain", &gain, 0.0f, 2.0f, "%.3f");
 
 	ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
 				ImGui::GetIO().Framerate);
 
+	addFiltersTable();
+
 	if (ImGui::Checkbox("Combine Filters", &m_View_CombinedFiltersActive))
 	{
 		onActivateCombinedFilterClicked();
 	}
-
-	addFiltersTable();
 
 	ImGui::End();
 }
@@ -185,32 +196,57 @@ void WebcamView::showFilters()
 {
 	m_WebcamController.getMats(m_ViewsWebcamMats);
 
-	if (m_ViewsWebcamMats.activeMatsCount)
+	if (m_ViewsWebcamMats.activeMatsCount == 0)
 	{
-		m_FilteredTextures = std::vector<ImageTexture>(m_ViewsWebcamMats.activeMatsCount);
-		auto filteredTextureItr = m_FilteredTextures.begin();
-		for (auto& filteredMat : m_ViewsWebcamMats.m_filteredMatsMap)
-		{
-			if (filteredMat.second.empty())
-				continue;
-
-			std::string& window_name = m_View_ActiveFiltersStrings.at(filteredMat.first);
-
-			filteredTextureItr->setImage(&filteredMat.second);
-
-			ImGui::Begin(window_name.c_str());
-			ImGui::Image((ImTextureID)(intptr_t)filteredTextureItr->getOpenglTexture(), filteredTextureItr->getSize());
-			ImGui::End();
-
-			filteredTextureItr++;
-		}
+		return;
 	}
+
+	ImGui::SetNextWindowPos(ImVec2(m_mainContentsWidth, 0));
+	const float filtersWidth = m_windowWidht - m_mainContentsWidth;
+	const float filtersHeight = m_windowHeight * (m_ViewsWebcamMats.currentFiltersCombinedMat.empty() ? 1.0f : 0.5f);
+	const ImVec2 filtersSize = ImVec2(filtersWidth, filtersHeight);
+	ImGui::SetNextWindowSize(filtersSize);
+
+	ImGuiWindowFlags filtersFlags =
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoBringToFrontOnFocus |
+		ImGuiWindowFlags_HorizontalScrollbar;
+	ImGui::Begin("Filters", nullptr, filtersFlags);
+
+	ImVec2 child_window_size = ImVec2(1280, 720);
+
+	m_FilteredTextures = std::vector<ImageTexture>(m_ViewsWebcamMats.activeMatsCount);
+	auto filteredTextureItr = m_FilteredTextures.begin();
+	for (auto& filteredMat : m_ViewsWebcamMats.m_filteredMatsMap)
+	{
+		if (filteredMat.second.empty())
+			continue;
+
+		std::string& window_name = m_View_ActiveFiltersStrings.at(filteredMat.first);
+
+		filteredTextureItr->setImage(&filteredMat.second);
+
+		ImGui::BeginChild(window_name.c_str(), child_window_size, true);
+		ImGui::Image((ImTextureID)(intptr_t)filteredTextureItr->getOpenglTexture(), filteredTextureItr->getSize());
+		ImGui::EndChild();
+
+		ImGui::SameLine();
+
+		filteredTextureItr++;
+	}
+
+	ImGui::End();
 
 	if (m_ViewsWebcamMats.currentFiltersCombinedMat.empty() == false)
 	{
 		m_CombinedTexture.setImage(&m_ViewsWebcamMats.currentFiltersCombinedMat);
 
-		ImGui::Begin("Filters Combined");
+		ImGui::SetNextWindowPos(ImVec2(m_mainContentsWidth, filtersHeight));
+		ImGui::SetNextWindowSize(filtersSize);
+
+		ImGui::Begin("Filters Combined", nullptr, filtersFlags);
 		ImGui::Image((ImTextureID)(intptr_t)m_CombinedTexture.getOpenglTexture(), m_CombinedTexture.getSize());
 		ImGui::End();
 	}
